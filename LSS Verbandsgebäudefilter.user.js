@@ -1,37 +1,66 @@
 // ==UserScript==
 // @name         LSS Verbandsgebäudefilter
 // @namespace    www.leitstellenspiel.de
-// @version      1.0
-// @description  Fügt Filterbuttons für verschiedene Gebäudearten hinzu.
+// @version      1.1
+// @description  Fügt Filterbuttons für verschiedene Gebäudearten hinzu und zeigt die Anzahl der Gebäude als Tooltip an.
 // @author       MissSobol
 // @match        https://www.leitstellenspiel.de/verband/gebauede
 // @grant        none
 // ==/UserScript==
-
 
 (function() {
     'use strict';
 
     let activeType = null;
 
-    function addFilterButtons() {
+    async function fetchBuildingData() {
+        const response = await fetch('https://www.leitstellenspiel.de/api/alliance_buildings');
+        return await response.json();
+    }
+
+    function countBuildingsByType(buildings) {
+        const typeCount = {
+            4: 0,  // Krankenhaus
+            16: 0, // Zelle
+            3: 0,  // Rettungsschule
+            1: 0,  // Feuerwehrschule
+            8: 0,  // Polizeischule
+            10: 0, // THW-Schule
+            14: 0  // Bereitstellungsraum
+        };
+
+        buildings.forEach(building => {
+            if (typeCount.hasOwnProperty(building.building_type)) {
+                typeCount[building.building_type]++;
+            }
+        });
+
+        return typeCount;
+    }
+
+    async function addFilterButtons() {
         const panelHeading = document.querySelector('.panel-heading');
         const buildingTypes = [
-            { type: 'building_hospital', label: 'Krankenhäuser' },
-            { type: 'building_polizeiwache', label: 'Zelle' },
-            { type: 'building_fireschool', label: 'Feuerwehrschule' },
-            { type: 'building_polizeischule', label: 'Polizeischule' },
-            { type: 'building_rettungsschule', label: 'Rettungsschule' },
-            { type: 'building_thw_school', label: 'THW-Schule' }
+            { type: 'building_hospital', label: 'Krankenhäuser', id: 4 },
+            { type: 'building_polizeiwache', label: 'Zelle', id: 16 },
+            { type: 'building_fireschool', label: 'Feuerwehrschule', id: 1 },
+            { type: 'building_polizeischule', label: 'Polizeischule', id: 8 },
+            { type: 'building_rettungsschule', label: 'Rettungsschule', id: 3 },
+            { type: 'building_thw_school', label: 'THW-Schule', id: 10 },
+            { type: 'building_bereitstellungsraum', label: 'Bereitstellungsraum', id: 14 },
         ];
+
+        const buildings = await fetchBuildingData();
+        const typeCount = countBuildingsByType(buildings);
 
         buildingTypes.forEach(info => {
             const button = document.createElement('button');
             button.textContent = info.label;
             button.className = 'btn btn-xs btn-default';
+            button.title = `${info.label}: ${typeCount[info.id]}`;
             button.addEventListener('click', () => filterBuildings(info.type, button));
             panelHeading.appendChild(button);
-            //console.log('Button added:', info.label);
+            //console.log('Button added:', info.label, 'Count:', typeCount[info.id]);
         });
     }
 
@@ -74,6 +103,7 @@
             }
         });
     }
+
     // Warte 100 ms, bevor das Skript ausgeführt wird
     setTimeout(addFilterButtons, 100);
 })();
